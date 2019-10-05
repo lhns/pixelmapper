@@ -1,9 +1,25 @@
 name := "led-strip-server"
 version := "0.0.0"
 
+mainClass := Some("ledstrip.server.Main")
+
 scalaVersion := "2.12.8"
 
+libraryDependencies ++= Seq(
+  "ch.qos.logback" % "logback-classic" % "1.2.3",
+  "io.monix" %% "monix" % "3.0.0",
+  "io.circe" %% "circe-core" % "0.11.1",
+  "io.circe" %% "circe-generic" % "0.11.1",
+  "io.circe" %% "circe-parser" % "0.11.1",
+  "org.http4s" %% "http4s-dsl" % "0.20.11",
+  "org.http4s" %% "http4s-blaze-server" % "0.20.11",
+  "org.http4s" %% "http4s-blaze-client" % "0.20.11",
+  "org.http4s" %% "http4s-circe" % "0.20.11",
+  "com.github.mbelling" % "rpi-ws281x-java" % "2.0.0"
+)
+
 addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.2.4")
+
 
 assembly / assemblyJarName := s"${name.value}-${version.value}.sh.bat"
 
@@ -24,18 +40,6 @@ assembly / assemblyMergeStrategy := {
     val oldStrategy = (assembly / assemblyMergeStrategy).value
     oldStrategy(x)
 }
-
-libraryDependencies ++= Seq(
-  "ch.qos.logback" % "logback-classic" % "1.2.3",
-  "io.monix" %% "monix" % "3.0.0",
-  "io.circe" %% "circe-core" % "0.11.1",
-  "io.circe" %% "circe-generic" % "0.11.1",
-  "io.circe" %% "circe-parser" % "0.11.1",
-  "org.http4s" %% "http4s-dsl" % "0.20.11",
-  "org.http4s" %% "http4s-blaze-server" % "0.20.11",
-  "org.http4s" %% "http4s-circe" % "0.20.11",
-  "com.github.mbelling" % "rpi-ws281x-java" % "2.0.0"
-)
 
 def universalScript(shellCommands: String,
                     cmdCommands: String,
