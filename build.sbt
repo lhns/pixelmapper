@@ -3,12 +3,12 @@ version := "0.0.0"
 
 scalaVersion := "2.12.8"
 
-addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.2.4"),
+addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.2.4")
 
-assembly / assemblyJarName := s"${name.value}-${version.value}.sh.bat",
+assembly / assemblyJarName := s"${name.value}-${version.value}.sh.bat"
 
 assembly / assemblyOption := (assembly / assemblyOption).value
-  .copy(prependShellScript = Some(defaultUniversalScript(shebang = false))),
+  .copy(prependShellScript = Some(defaultUniversalScript(shebang = false)))
 
 assembly / assemblyMergeStrategy := {
   case PathList("module-info.class") =>
@@ -26,7 +26,14 @@ assembly / assemblyMergeStrategy := {
 }
 
 libraryDependencies ++= Seq(
-  "io.monix" %%% "monix" % "3.0.0",
+  "ch.qos.logback" % "logback-classic" % "1.2.3",
+  "io.monix" %% "monix" % "3.0.0",
+  "io.circe" %% "circe-core" % "0.11.1",
+  "io.circe" %% "circe-generic" % "0.11.1",
+  "io.circe" %% "circe-parser" % "0.11.1",
+  "org.http4s" %% "http4s-dsl" % "0.20.11",
+  "org.http4s" %% "http4s-blaze-server" % "0.20.11",
+  "org.http4s" %% "http4s-circe" % "0.20.11",
   "com.github.mbelling" % "rpi-ws281x-java" % "2.0.0"
 )
 
