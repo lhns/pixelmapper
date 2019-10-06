@@ -2,13 +2,14 @@ package ledstrip.server
 
 import cats.data.OptionT
 import cats.effect.ExitCode
-import ledstrip.{Animation, ColorRule, Frame, LedStrip}
+import ledstrip._
 import monix.catnap.MVar
 import monix.eval.{Task, TaskApp}
 import org.http4s.HttpRoutes
 import org.http4s.circe.CirceEntityDecoder._
 import org.http4s.dsl.task._
 import org.http4s.implicits._
+import org.http4s.scalatags._
 import org.http4s.server.blaze.BlazeServerBuilder
 
 import scala.concurrent.duration._
@@ -44,7 +45,7 @@ object Main extends TaskApp {
           animationVar.tryPut(Some(newAnimation))
 
         case None =>
-          Task.unit
+          ledStrip.setColors(List(ColorRule(None, Color.Black)))
       }
     } yield ()).loopForever
   }
@@ -74,6 +75,10 @@ object Main extends TaskApp {
           _ <- runningAnimation.put(None)
           response <- Ok()
         } yield response
+
+      case GET -> Root / "ui" =>
+        Ok(Ui.ui)
+
     }
 
   override def run(args: List[String]): Task[ExitCode] = {

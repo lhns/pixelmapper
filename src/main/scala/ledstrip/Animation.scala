@@ -10,7 +10,7 @@ object Animation {
   implicit val animationEncoder: Encoder[Animation] = deriveEncoder[Animation]
 }
 
-case class Frame(delay: Int, rules: List[ColorRule])
+case class Frame(rules: List[ColorRule], delay: Int)
 
 object Frame {
   implicit val frameDecoder: Decoder[Frame] = deriveDecoder[Frame]

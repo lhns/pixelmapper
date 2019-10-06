@@ -11,10 +11,12 @@ libraryDependencies ++= Seq(
   "io.circe" %% "circe-core" % "0.11.1",
   "io.circe" %% "circe-generic" % "0.11.1",
   "io.circe" %% "circe-parser" % "0.11.1",
+  "com.lihaoyi" %% "scalatags" % "0.7.0",
   "org.http4s" %% "http4s-dsl" % "0.20.11",
   "org.http4s" %% "http4s-blaze-server" % "0.20.11",
   "org.http4s" %% "http4s-blaze-client" % "0.20.11",
   "org.http4s" %% "http4s-circe" % "0.20.11",
+  "org.http4s" %% "http4s-scalatags" % "0.20.11",
   "com.github.mbelling" % "rpi-ws281x-java" % "2.0.0"
 )
 
