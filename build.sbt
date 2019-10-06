@@ -1,5 +1,5 @@
 name := "led-strip-server"
-version := "0.0.0"
+version := "0.0.1"
 
 mainClass := Some("ledstrip.server.Main")
 
