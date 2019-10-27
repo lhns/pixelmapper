@@ -1,89 +1,92 @@
-name := "led-strip-server"
-version := "0.0.1"
+inThisBuild(Seq(
+  name := "led-strip",
+  scalaVersion := "2.12.10"
+))
 
-mainClass := Some("ledstrip.server.Main")
+name := (ThisBuild / name).value
 
-scalaVersion := "2.12.8"
+def settings: Seq[SettingsDefinition] = Seq(
+  addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.2.4"),
 
-libraryDependencies ++= Seq(
-  "ch.qos.logback" % "logback-classic" % "1.2.3",
-  "io.monix" %% "monix" % "3.0.0",
-  "io.circe" %% "circe-core" % "0.11.1",
-  "io.circe" %% "circe-generic" % "0.11.1",
-  "io.circe" %% "circe-parser" % "0.11.1",
-  "com.lihaoyi" %% "scalatags" % "0.7.0",
-  "org.http4s" %% "http4s-dsl" % "0.20.11",
-  "org.http4s" %% "http4s-blaze-server" % "0.20.11",
-  "org.http4s" %% "http4s-blaze-client" % "0.20.11",
-  "org.http4s" %% "http4s-circe" % "0.20.11",
-  "org.http4s" %% "http4s-scalatags" % "0.20.11",
-  "com.github.mbelling" % "rpi-ws281x-java" % "2.0.0"
+  assembly / assemblyJarName := s"${name.value}-${version.value}.sh.bat",
+
+  assembly / assemblyOption := (assembly / assemblyOption).value
+    .copy(prependShellScript = Some(AssemblyPlugin.defaultUniversalScript(shebang = false))),
+
+  assembly / assemblyMergeStrategy := {
+    case PathList("module-info.class") =>
+      MergeStrategy.discard
+
+    case PathList("META-INF", "jpms.args") =>
+      MergeStrategy.discard
+
+    case PathList("META-INF", "io.netty.versions.properties") =>
+      MergeStrategy.first
+
+    case x =>
+      val oldStrategy = (assembly / assemblyMergeStrategy).value
+      oldStrategy(x)
+  }
 )
 
-addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.2.4")
+lazy val ledStripServer = project.in(file("."))
+  .settings(settings: _*)
+  .settings(
+    name := "led-strip-server",
+    version := "0.0.1",
 
+    mainClass := Some("ledstrip.server.Main"),
 
-assembly / assemblyJarName := s"${name.value}-${version.value}.sh.bat"
+    libraryDependencies ++= Seq(
+      "ch.qos.logback" % "logback-classic" % "1.2.3",
+      "io.monix" %% "monix" % "3.0.0",
+      "io.circe" %% "circe-core" % "0.11.1",
+      "io.circe" %% "circe-generic" % "0.11.1",
+      "io.circe" %% "circe-parser" % "0.11.1",
+      "com.lihaoyi" %% "scalatags" % "0.7.0",
+      "org.http4s" %% "http4s-dsl" % "0.20.11",
+      "org.http4s" %% "http4s-blaze-server" % "0.20.11",
+      "org.http4s" %% "http4s-blaze-client" % "0.20.11",
+      "org.http4s" %% "http4s-circe" % "0.20.11",
+      "org.http4s" %% "http4s-scalatags" % "0.20.11",
+      "com.github.mbelling" % "rpi-ws281x-java" % "2.0.0"
+    )
+  )
 
-assembly / assemblyOption := (assembly / assemblyOption).value
-  .copy(prependShellScript = Some(defaultUniversalScript(shebang = false)))
+def osName: String =
+  if (scala.util.Properties.isLinux) "linux"
+  else if (scala.util.Properties.isMac) "mac"
+  else if (scala.util.Properties.isWin) "win"
+  else throw new Exception("Unknown platform!")
 
-assembly / assemblyMergeStrategy := {
-  case PathList("module-info.class") =>
-    MergeStrategy.discard
+lazy val simulator = project.in(file("simulator"))
+  .settings(settings: _*)
+  .settings(
+    name := "led-strip-simulator",
+    version := "0.0.1",
 
-  case PathList("META-INF", "jpms.args") =>
-    MergeStrategy.discard
+    libraryDependencies ++= Seq(
+      "org.typelevel" %% "cats-core" % "2.0.0",
+      "org.openjfx" % "javafx-base" % "12.0.2" classifier osName,
+      "org.openjfx" % "javafx-controls" % "12.0.2" classifier osName,
+      "org.openjfx" % "javafx-graphics" % "12.0.2" classifier osName,
+      "org.scalafx" %% "scalafx" % "12.0.2-R18",
+      "com.miglayout" % "miglayout-javafx" % "5.2"
+    )
+  )
 
-  case PathList("META-INF", "io.netty.versions.properties") =>
-    MergeStrategy.first
+lazy val editor = project.in(file("editor"))
+  .settings(settings: _*)
+  .settings(
+    name := "led-strip-editor",
+    version := "0.0.1",
 
-  case x =>
-    val oldStrategy = (assembly / assemblyMergeStrategy).value
-    oldStrategy(x)
-}
-
-def universalScript(shellCommands: String,
-                    cmdCommands: String,
-                    shebang: Boolean): String = {
-  Seq(
-    if (shebang) "#!/usr/bin/env sh" else "",
-    "@ 2>/dev/null # 2>nul & echo off & goto BOF\r",
-    ":",
-    shellCommands.replaceAll("\r\n|\n", "\n"),
-    "exit",
-    Seq(
-      "",
-      ":BOF",
-      cmdCommands.replaceAll("\r\n|\n", "\r\n"),
-      "exit /B %errorlevel%",
-      ""
-    ).mkString("\r\n")
-  ).filterNot(_.isEmpty).mkString("\n")
-}
-
-def defaultUniversalScript(shebang: Boolean,
-                           javaOpts: Seq[String] = Seq.empty,
-                           javaw: Boolean = false): Seq[String] = {
-  val javaOptsString = javaOpts.map(_ + " ").mkString
-  Seq(universalScript(
-    shellCommands = {
-      def javaCommand(args: String): String =
-        s"exec java $args"
-
-      "if [ -n \"$JAVA_HOME\" ]; then PATH=\"$JAVA_HOME/bin:$PATH\"; fi\n" +
-        javaCommand(s"""-jar $javaOptsString$$JAVA_OPTS "$$0" "$$@"""")
-    },
-    cmdCommands = {
-      def javaCommand(args: String): String =
-        if (javaw)
-          s"""start "" javaw $args"""
-        else
-          s"java $args"
-
-      "if not \"%JAVA_HOME%\"==\"\" set \"PATH=%JAVA_HOME%\\bin;%PATH%\"\n" +
-        javaCommand(s"""-jar $javaOptsString%JAVA_OPTS% "%~dpnx0" %*""")
-    },
-    shebang = shebang
-  ))
-}
+    libraryDependencies ++= Seq(
+      "org.typelevel" %% "cats-core" % "2.0.0",
+      "org.openjfx" % "javafx-base" % "12.0.2" classifier osName,
+      "org.openjfx" % "javafx-controls" % "12.0.2" classifier osName,
+      "org.openjfx" % "javafx-graphics" % "12.0.2" classifier osName,
+      "org.scalafx" %% "scalafx" % "12.0.2-R18",
+      "com.miglayout" % "miglayout-javafx" % "5.2"
+    )
+  )

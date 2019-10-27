@@ -54,7 +54,7 @@ object Main extends TaskApp {
     val request: Request[Task] =
       Request(
         method = method,
-        uri = Uri.unsafeFromString(s"http://10.1.15.178:8080") / endpoint
+        uri = Uri.unsafeFromString(s"http://10.1.15.24:8080") / endpoint
       )
         .withEntity(entity)
 
@@ -93,15 +93,25 @@ object Main extends TaskApp {
         drawImage().loopForever*/
 
         val frames = for (row <- 0 until image.height) yield {
-          Frame(imageRow(image, row), if (row % 10 == 0) 500 else 30)
+          Frame(imageRow(image, row), if (row % 10 == 0) 30 else 30)
         }
 
-        sendAnimation(Some(Animation(frames.toList, loop = false)))
+        sendAnimation(Some(Animation(frames.toList, loop = true)))
         //sendAnimation(None)
       }.onErrorRestartIf { throwable =>
         throwable.printStackTrace()
         true
       }
+
+      /*_ <- Task {
+        val frames = for (row <- 0 until image.height) yield {
+          Frame(imageRow(image, row), if (row % 10 == 0) 30 else 30)
+        }
+
+        val animation = Animation(frames.toList, loop = true)
+
+        println(animation.asJson.noSpaces)
+      }*/
     } yield
       ExitCode.Success
 }

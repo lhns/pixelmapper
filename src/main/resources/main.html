@@ -1,0 +1,56 @@
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Led Strip Server</title>
+
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+          integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"
+            integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"
+            integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1"
+            crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"
+            integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
+            crossorigin="anonymous"></script>
+    <script src="https://use.fontawesome.com/2171858466.js"></script>
+    <script crossorigin src="https://unpkg.com/react@16/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@16/umd/react-dom.production.min.js"></script>
+    <!--script crossorigin src="https://unpkg.com/react@16/umd/react.development.js"></script-->
+    <!--script crossorigin src="https://unpkg.com/react-dom@16/umd/react-dom.development.js"></script-->
+
+    <style>
+        .btn {
+            padding: 0;
+            touch-action: manipulation;
+        }
+
+        .flex-fill {
+            flex-basis: 0 !important;
+        }
+    </style>
+</head>
+<body class="h-100">
+<div class="h-100 d-flex flex-column">
+    <div class="flex-fill"></div>
+    <div class="flex-fill d-flex flex-row">
+        <div class="flex-fill"></div>
+        <!--button type="submit" class="btn btn-danger flex-fill fa fa-power-off"></button-->
+        <div class="flex-fill" id="root">
+            <div class="flex-fill"></div>
+        </div>
+        <div class="flex-fill"></div>
+    </div>
+</div>
+<script>
+    var name = 'World';
+    var element = React.createElement("h1", null, `Hello, ${name}`);
+
+    ReactDOM.render(
+        element,
+        document.getElementById('root')
+    );
+</script>
+</body>
+</html>
