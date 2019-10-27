@@ -82,11 +82,11 @@ lazy val editor = project.in(file("editor"))
     version := "0.0.1",
 
     libraryDependencies ++= Seq(
-      "org.typelevel" %% "cats-core" % "2.0.0",
+      "io.monix" %% "monix" % "3.0.0",
+      "co.fs2" %% "fs2-core" % "2.0.0",
       "org.openjfx" % "javafx-base" % "12.0.2" classifier osName,
       "org.openjfx" % "javafx-controls" % "12.0.2" classifier osName,
       "org.openjfx" % "javafx-graphics" % "12.0.2" classifier osName,
-      "org.scalafx" %% "scalafx" % "12.0.2-R18",
-      "com.miglayout" % "miglayout-javafx" % "5.2"
+      "org.scalafx" %% "scalafx" % "12.0.2-R18"
     )
   )
