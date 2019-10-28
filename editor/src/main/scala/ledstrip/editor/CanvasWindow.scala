@@ -1,8 +1,11 @@
 package ledstrip.editor
 
 import fs2._
+import fs2.concurrent.Queue
 import javafx.embed.swing.SwingFXUtils
+import javafx.scene.input.MouseEvent
 import monix.eval.Task
+import monix.execution.schedulers.CanBlock
 import monix.execution.{CancelableFuture, Scheduler}
 import scalafx.application.JFXApp
 import scalafx.application.JFXApp.PrimaryStage
@@ -13,6 +16,10 @@ case class CanvasWindow(title: String,
                         width: Double,
                         height: Double,
                         render: Stream[Task, Image]) {
+  private val onClickQueue = Queue.bounded[Task, MouseEvent](10).runSyncUnsafe()(Scheduler.global, CanBlock.permit)
+
+  def onClickStream: Stream[Task, MouseEvent] = onClickQueue.dequeue
+
   def show(): CancelableFuture[Unit] = Task {
     new JFXApp {
       stage = new PrimaryStage {
@@ -31,6 +38,8 @@ case class CanvasWindow(title: String,
             val fxImage = SwingFXUtils.toFXImage(image.toBufferedImage, null)
             graphics2d.drawImage(fxImage, 0, 0)
           }.compile.drain.runToFuture(Scheduler.singleThread("render-images"))
+
+          canvas.onMouseClicked = (event: MouseEvent) => onClickQueue.enqueue1(event).runAsyncAndForget(Scheduler.global)
         }
       }
     }.main(Array[String]())

@@ -59,6 +59,8 @@ object Main {
 
     val canvasWindow = CanvasWindow("Test", 1900, 1000, queue.dequeue)
 
+    canvasWindow.onClickStream.map(println).compile.drain.runAsyncAndForget
+
     canvasWindow.show()
   }
 
