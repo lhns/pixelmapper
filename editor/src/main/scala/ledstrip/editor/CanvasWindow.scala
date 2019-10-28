@@ -3,7 +3,6 @@ package ledstrip.editor
 import fs2._
 import javafx.embed.swing.SwingFXUtils
 import monix.eval.Task
-import monix.execution.Scheduler.Implicits.global
 import monix.execution.{CancelableFuture, Scheduler}
 import scalafx.application.JFXApp
 import scalafx.application.JFXApp.PrimaryStage
@@ -20,7 +19,10 @@ case class CanvasWindow(title: String,
         title.value = CanvasWindow.this.title
 
         scene = new Scene(CanvasWindow.this.width, CanvasWindow.this.height) {
-          private val canvas = new Canvas(CanvasWindow.this.width, CanvasWindow.this.height)
+          private val canvas = new Canvas(CanvasWindow.this.width, CanvasWindow.this.height) {
+            resizable = true
+          }
+
           private val graphics2d = canvas.graphicsContext2D
 
           content = canvas
@@ -28,9 +30,9 @@ case class CanvasWindow(title: String,
           render.map { image =>
             val fxImage = SwingFXUtils.toFXImage(image.toBufferedImage, null)
             graphics2d.drawImage(fxImage, 0, 0)
-          }.compile.drain.runToFuture
+          }.compile.drain.runToFuture(Scheduler.singleThread("render-images"))
         }
       }
     }.main(Array[String]())
-  }.runToFuture(Scheduler.singleThread("render"))
+  }.runToFuture(Scheduler.singleThread("render-window"))
 }

@@ -84,6 +84,7 @@ lazy val editor = project.in(file("editor"))
     libraryDependencies ++= Seq(
       "io.monix" %% "monix" % "3.0.0",
       "co.fs2" %% "fs2-core" % "2.0.0",
+      "co.fs2" %% "fs2-io" % "2.0.0",
       "org.openjfx" % "javafx-base" % "12.0.2" classifier osName,
       "org.openjfx" % "javafx-controls" % "12.0.2" classifier osName,
       "org.openjfx" % "javafx-graphics" % "12.0.2" classifier osName,

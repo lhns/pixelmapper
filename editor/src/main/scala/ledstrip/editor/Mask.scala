@@ -6,7 +6,7 @@ case class Mask(width: Int, height: Int, points: Seq[MaskPoint]) {
   def toLine(image: Image): Seq[Color] = {
     val maxIndex = points.map(_.index).max
     (0 to maxIndex).map { i =>
-      points.find(_.index == i).map(point => image(point.x, point.y)).getOrElse(Color.Black)
+      points.find(_.index == i).map(point => image.pixel(point.x, point.y)).getOrElse(Color.Black)
     }
   }
 
@@ -25,5 +25,20 @@ case class Mask(width: Int, height: Int, points: Seq[MaskPoint]) {
 object Mask {
 
   case class MaskPoint(x: Int, y: Int, index: Int)
+
+  def fromImage(image: Image): Mask = {
+    val width = image.width
+    val height = image.height
+
+    Mask(width, height,
+      for {
+        y <- 0 until height
+        x <- 0 until width
+        color = image.pixel(x, y)
+        _ <- Some(()).filter(_ => color.r == 255)
+      } yield
+        MaskPoint(x, y, color.g + color.b * 255)
+    )
+  }
 
 }
