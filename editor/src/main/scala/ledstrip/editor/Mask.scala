@@ -14,10 +14,17 @@ case class Mask(width: Int, height: Int, points: Seq[MaskPoint]) {
     val image = Image.blank(width, height, Color.White)
     line.zipWithIndex.foldLeft(image) {
       case (image, (color, index)) =>
-        points.collectFirst {
-          case MaskPoint(x, y, `index`) =>
+        points.foldLeft(image) {
+          case (image, MaskPoint(x, y, `index`)) =>
             image.withPixel(x, y, color)
-        }.getOrElse(image)
+
+          case (image, _) =>
+            image
+        }
+      /*points.collectFirst {
+        case MaskPoint(x, y, `index`) =>
+          image.withPixel(x, y, color)
+      }.getOrElse(image)*/
     }
   }
 }

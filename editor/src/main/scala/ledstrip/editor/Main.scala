@@ -34,16 +34,28 @@ object Main {
       images(Color.Blue).through(queue.enqueue).compile.drain.runToFuture(scheduler)
     }*/
 
-    val path: Path = Paths.get("D:\\pierr\\Downloads\\animation2.png")
-    val image: Image = Image.read(path)
+    val path: Path = Paths.get("D:\\pierr\\Downloads\\animation1.png")
+    val image1: Image = Image.read(path)
 
     val image2: Image = Image.read(loadFromClasspath("test.png"))
 
     val mask = Mask.fromImage(image2)
 
-    val image3 = mask.fromLine(image2.row(0))
+    println(mask.points)
 
-    queue.enqueue1(image3.scale(4, 4)).runSyncUnsafe()
+    def rows(mask: Mask, image: Image, duration: FiniteDuration, row: Int = 0): Stream[Task, Image] = {
+      val nextRow = if (row + 1 == image.height) 0 else row + 1
+
+      val maskedImage = mask.fromLine(image1.row(row))
+      Stream(maskedImage) ++ (Stream.sleep[Task](duration) >> rows(mask, image, duration, nextRow))
+    }
+
+    {
+      val scheduler: Scheduler = Scheduler.singleThread("images")
+      rows(mask, image1, 20.millis).map(_.scale(4, 4)).through(queue.enqueue).compile.drain.runToFuture(scheduler)
+    }
+
+    //queue.enqueue1(image3.scale(4, 4)).runSyncUnsafe()
 
     val canvasWindow = CanvasWindow("Test", 1900, 1000, queue.dequeue)
 
