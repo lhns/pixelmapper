@@ -54,7 +54,7 @@ object Main extends TaskApp {
     val request: Request[Task] =
       Request(
         method = method,
-        uri = Uri.unsafeFromString(s"http://10.1.15.24:8080") / endpoint
+        uri = Uri.unsafeFromString(s"http://10.1.15.5:8080") / endpoint
       )
         .withEntity(entity)
 

@@ -23,6 +23,9 @@ def settings: Seq[SettingsDefinition] = Seq(
     case PathList("META-INF", "io.netty.versions.properties") =>
       MergeStrategy.first
 
+    case PathList("libws281x.so") =>
+      MergeStrategy.last
+
     case x =>
       val oldStrategy = (assembly / assemblyMergeStrategy).value
       oldStrategy(x)
@@ -33,9 +36,9 @@ lazy val ledStripServer = project.in(file("."))
   .settings(settings: _*)
   .settings(
     name := "led-strip-server",
-    version := "0.0.1",
+    version := "0.0.2",
 
-    mainClass := Some("ledstrip.server.Main"),
+    Compile / mainClass := Some("ledstrip.server.Main"),
 
     libraryDependencies ++= Seq(
       "ch.qos.logback" % "logback-classic" % "1.2.3",
