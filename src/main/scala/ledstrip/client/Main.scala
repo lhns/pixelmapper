@@ -1,7 +1,8 @@
 package ledstrip.client
 
 import java.awt.image.BufferedImage
-import java.nio.file.{Path, Paths}
+import java.io.File
+import java.nio.file.{Files, Path, Paths}
 
 import cats.effect.ExitCode
 import javax.imageio.ImageIO
@@ -12,6 +13,8 @@ import org.http4s.circe.CirceEntityEncoder._
 import org.http4s.client.Client
 import org.http4s.client.blaze.BlazeClientBuilder
 import org.http4s.{EntityEncoder, Method, Request, Uri}
+
+import scala.collection.JavaConverters._
 
 object Main extends TaskApp {
 
@@ -33,9 +36,6 @@ object Main extends TaskApp {
     def read(path: Path): Image = Image(ImageIO.read(path.toFile))
   }
 
-  val path: Path = Paths.get("D:\\pierr\\Downloads\\animation2.png")
-  var image: Image = Image.read(path)
-
 
   def sendColors(colorRules: List[ColorRule])(implicit client: Client[Task]): Task[Unit] =
     send(Method.POST, "colors", colorRules)
@@ -50,11 +50,21 @@ object Main extends TaskApp {
     }
 
 
+  def loadUri(): Uri = {
+    def jarPath(clazz: Class[_]): Path = Paths.get(new File(clazz.getProtectionDomain.getCodeSource.getLocation.toURI.getPath).getPath)
+
+    val confPath = jarPath(getClass).resolveSibling("config.txt")
+    val uriString = Files.readAllLines(confPath).asScala.toList.mkString("\n").trim
+    Uri.unsafeFromString(uriString)
+  }
+
   def send[E](method: Method, endpoint: String, entity: E)(implicit client: Client[Task], encoder: EntityEncoder[Task, E]): Task[Unit] = {
+    val uri = loadUri()
+
     val request: Request[Task] =
       Request(
         method = method,
-        uri = Uri.unsafeFromString(s"http://10.1.15.5:8080") / endpoint
+        uri = uri / endpoint
       )
         .withEntity(entity)
 
@@ -71,7 +81,10 @@ object Main extends TaskApp {
   }
 
 
-  override def run(args: List[String]): Task[ExitCode] =
+  override def run(args: List[String]): Task[ExitCode] = {
+    val path: Path = Paths.get(args.head)
+    val image: Image = Image.read(path)
+
     for {
       _ <- BlazeClientBuilder[Task](Scheduler.global).resource.use { implicit client =>
         /*def drawImage(row: Int = 0): Task[Unit] = {
@@ -114,4 +127,5 @@ object Main extends TaskApp {
       }*/
     } yield
       ExitCode.Success
+  }
 }

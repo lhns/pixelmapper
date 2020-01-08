@@ -36,9 +36,9 @@ lazy val ledStripServer = project.in(file("."))
   .settings(settings: _*)
   .settings(
     name := "led-strip-server",
-    version := "0.0.2",
+    version := "0.1.2",
 
-    Compile / mainClass := Some("ledstrip.server.Main"),
+    Compile / mainClass := Some("ledstrip.client.Main"),
 
     libraryDependencies ++= Seq(
       "ch.qos.logback" % "logback-classic" % "1.2.3",
@@ -66,14 +66,15 @@ lazy val simulator = project.in(file("simulator"))
   .settings(settings: _*)
   .settings(
     name := "led-strip-simulator",
-    version := "0.0.1",
+    version := "0.0.3",
 
     libraryDependencies ++= Seq(
       "org.typelevel" %% "cats-core" % "2.0.0",
-      "org.openjfx" % "javafx-base" % "12.0.2" classifier osName,
-      "org.openjfx" % "javafx-controls" % "12.0.2" classifier osName,
-      "org.openjfx" % "javafx-graphics" % "12.0.2" classifier osName,
-      "org.scalafx" %% "scalafx" % "12.0.2-R18",
+      "org.openjfx" % "javafx-base" % "11.0.2" classifier osName,
+      "org.openjfx" % "javafx-controls" % "11.0.2" classifier osName,
+      "org.openjfx" % "javafx-graphics" % "11.0.2" classifier osName,
+      "org.openjfx" % "javafx-media" % "11.0.2" classifier osName,
+      "org.scalafx" %% "scalafx" % "11-R16",
       "com.miglayout" % "miglayout-javafx" % "5.2"
     )
   )
@@ -88,9 +89,10 @@ lazy val editor = project.in(file("editor"))
       "io.monix" %% "monix" % "3.0.0",
       "co.fs2" %% "fs2-core" % "2.0.0",
       "co.fs2" %% "fs2-io" % "2.0.0",
-      "org.openjfx" % "javafx-base" % "12.0.2" classifier osName,
-      "org.openjfx" % "javafx-controls" % "12.0.2" classifier osName,
-      "org.openjfx" % "javafx-graphics" % "12.0.2" classifier osName,
-      "org.scalafx" %% "scalafx" % "12.0.2-R18"
+      "org.openjfx" % "javafx-base" % "11.0.2" classifier osName,
+      "org.openjfx" % "javafx-controls" % "11.0.2" classifier osName,
+      "org.openjfx" % "javafx-graphics" % "11.0.2" classifier osName,
+      "org.openjfx" % "javafx-media" % "11.0.2" classifier osName,
+      "org.scalafx" %% "scalafx" % "11-R16"
     )
   )

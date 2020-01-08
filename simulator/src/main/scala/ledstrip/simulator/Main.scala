@@ -10,9 +10,7 @@ import scalafx.scene.Scene
 import scalafx.scene.canvas.Canvas
 import scalafx.scene.paint.Color
 
-object Main {
-  val path: Path = Paths.get("D:\\pierr\\Downloads\\animation2.png")
-
+class Main(val path: Path) {
   var image = ImageIO.read(path.toFile)
 
   def doReread(): Unit = {
@@ -84,7 +82,13 @@ object Main {
     }
   }
 
-  def main(args: Array[String]): Unit = {
+  def show(): Unit = {
     new JFXMain().main(Array[String]())
+  }
+}
+
+object Main {
+  def main(args: Array[String]): Unit = {
+    new Main(Paths.get(args(0))).show()
   }
 }
