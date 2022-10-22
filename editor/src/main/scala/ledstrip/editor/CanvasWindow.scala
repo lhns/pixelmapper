@@ -1,27 +1,31 @@
 package ledstrip.editor
 
+import cats.effect.{FiberIO, IO}
+import cats.effect.std.Queue
+import cats.effect.unsafe.IORuntime
 import fs2._
-import fs2.concurrent.Queue
 import javafx.embed.swing.SwingFXUtils
 import javafx.scene.input.MouseEvent
-import monix.eval.Task
-import monix.execution.schedulers.CanBlock
-import monix.execution.{CancelableFuture, Scheduler}
 import scalafx.application.JFXApp
 import scalafx.application.JFXApp.PrimaryStage
 import scalafx.scene.Scene
 import scalafx.scene.canvas.Canvas
 
+import java.util.concurrent.Executors
+import scala.concurrent.ExecutionContext
+
 case class CanvasWindow(title: String,
                         width: Double,
                         height: Double,
-                        render: Stream[Task, Image]) {
-  private val onClickQueue = Queue.bounded[Task, MouseEvent](10).runSyncUnsafe()(Scheduler.global, CanBlock.permit)
+                        render: Stream[IO, Image]) {
+  private val onClickQueue = Queue.bounded[IO, MouseEvent](10).unsafeRunSync()(IORuntime.global)
 
-  def onClickStream: Stream[Task, MouseEvent] = onClickQueue.dequeue
+  def onClickStream: Stream[IO, MouseEvent] = Stream.fromQueueUnterminated(onClickQueue)
 
-  def show(): CancelableFuture[Unit] = Task {
+  def show(): FiberIO[Unit] = IO.blocking {
     new JFXApp {
+      private val renderImagesContext = ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
+
       stage = new PrimaryStage {
         title.value = CanvasWindow.this.title
 
@@ -37,11 +41,13 @@ case class CanvasWindow(title: String,
           render.map { image =>
             val fxImage = SwingFXUtils.toFXImage(image.toBufferedImage, null)
             graphics2d.drawImage(fxImage, 0, 0)
-          }.compile.drain.runToFuture(Scheduler.singleThread("render-images"))
+          }.compile.drain.startOn(renderImagesContext)
 
-          canvas.onMouseClicked = (event: MouseEvent) => onClickQueue.enqueue1(event).runAsyncAndForget(Scheduler.global)
+          canvas.onMouseClicked = (event: MouseEvent) => onClickQueue.tryOffer(event).unsafeRunSync()(IORuntime.global)
         }
       }
     }.main(Array[String]())
-  }.runToFuture(Scheduler.singleThread("render-window"))
+  }
+    .startOn(ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor()))
+    .unsafeRunSync()(IORuntime.global)
 }

@@ -1,58 +1,67 @@
 package ledstrip.server
 
 import cats.data.OptionT
-import cats.effect.ExitCode
+import cats.effect.std.Queue
+import cats.effect.{ExitCode, IO, IOApp, Ref, Resource}
+import com.comcast.ip4s.{Host, Port, SocketAddress}
 import ledstrip._
-import monix.catnap.MVar
-import monix.eval.{Task, TaskApp}
-import org.http4s.HttpRoutes
+import org.http4s.{HttpApp, HttpRoutes}
 import org.http4s.circe.CirceEntityDecoder._
-import org.http4s.dsl.task._
+import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.implicits._
 import org.http4s.scalatags._
-import org.http4s.server.blaze.BlazeServerBuilder
+import org.http4s.dsl.io._
+import org.http4s.server.Server
+import org.http4s.server.middleware.ErrorAction
+import org.log4s.getLogger
 
 import scala.concurrent.duration._
 
-object Main extends TaskApp {
-  def playAnimation(ledStrip: LedStrip, animationVar: MVar[Task, Option[Animation]]): Task[Unit] = {
-    def playAnimationFrames(remainingFrames: List[Frame]): Task[Unit] =
+object Main extends IOApp {
+  private val logger = getLogger
+
+  def playAnimation(
+                     ledStrip: LedStrip,
+                     runningAnimation: Queue[IO, Option[Animation]]): IO[Unit] = {
+    def playAnimationFrames(remainingFrames: List[Frame]): IO[Unit] =
       remainingFrames.headOption match {
         case Some(frame) =>
           for {
             fiber <- ledStrip.setColors(frame.rules).start
-            _ <- Task.sleep(frame.delay.millis)
+            _ <- IO.sleep(frame.delay.millis)
             _ <- fiber.join
             _ <- playAnimationFrames(remainingFrames.tail)
           } yield ()
 
         case None =>
-          Task.unit
+          IO.unit
       }
 
-    (for {
-      animationOption <- animationVar.take
-      newAnimationOption <- Task.race[Option[Animation], Option[Animation]](
+    lazy val loop: IO[Unit] = (for {
+      animationOption <- runningAnimation.take
+      newAnimationOption <- IO.race[Option[Animation], Option[Animation]](
         (for {
-          animation <- OptionT.fromOption[Task](animationOption)
+          animation <- OptionT.fromOption[IO](animationOption)
           _ <- OptionT.liftF(playAnimationFrames(animation.frames))
-          _ <- OptionT.some(animation).filter(_.loop)
+          _ <- OptionT.some[IO](animation).filter(_.loop)
         } yield animation).value,
-        animationVar.take
+        runningAnimation.take
       ).map(_.merge)
       _ <- newAnimationOption match {
         case Some(newAnimation) =>
-          animationVar.tryPut(Some(newAnimation))
+          runningAnimation.tryOffer(Some(newAnimation))
 
         case None =>
           ledStrip.setColors(List(ColorRule(None, Color.Black)))
       }
-    } yield ()).loopForever
+    } yield ()) >> loop
+
+    loop
   }
 
   def service(ledStrip: LedStrip,
-              runningAnimation: MVar[Task, Option[Animation]]): HttpRoutes[Task] =
-    HttpRoutes.of[Task] {
+              runningAnimation: Queue[IO, Option[Animation]]): HttpRoutes[IO] =
+    HttpRoutes.of[IO] {
       case GET -> Root / "ping" =>
         Ok("pong")
 
@@ -66,13 +75,13 @@ object Main extends TaskApp {
       case request@POST -> Root / "animation" =>
         for {
           animation <- request.as[Animation]
-          _ <- runningAnimation.put(Some(animation))
+          _ <- runningAnimation.offer(Some(animation))
           response <- Ok()
         } yield response
 
       case request@DELETE -> Root / "animation" =>
         for {
-          _ <- runningAnimation.put(None)
+          _ <- runningAnimation.offer(None)
           response <- Ok()
         } yield response
 
@@ -81,22 +90,35 @@ object Main extends TaskApp {
 
     }
 
-  override def run(args: List[String]): Task[ExitCode] = {
-    val List(host, portString) = args(0).split(":").toList
-    val port = portString.toInt
+  override def run(args: List[String]): IO[ExitCode] = {
+    val socketAddress = SocketAddress.fromString(args(0)).get
+    val ledStrip = LedStrip(ledsCount = args(1).toInt)
 
-    val ledStrip = LedStrip(args(1).toInt)
-
-    for {
-      runningAnimation <- MVar.empty[Task, Option[Animation]]()
-      _ <- playAnimation(ledStrip, runningAnimation).start
-      httpApp = service(ledStrip, runningAnimation).orNotFound
-      _ <- BlazeServerBuilder[Task]
-        .bindHttp(port, host)
-        .withHttpApp(httpApp)
-        .resource
-        .use(_ => Task.never)
-    } yield
-      ExitCode.Success
+    applicationResource(
+      socketAddress,
+      ledStrip
+    ).use(_ => IO.never)
   }
+
+  def applicationResource(socketAddress: SocketAddress[Host], ledStrip: LedStrip): Resource[IO, Unit] =
+    for {
+      runningAnimation <- Resource.eval(Queue.circularBuffer[IO, Option[Animation]](1))
+      _ <- Resource.eval(playAnimation(ledStrip, runningAnimation).start)
+      _ <- serverResource(
+        socketAddress,
+        service(ledStrip, runningAnimation).orNotFound
+      )
+    } yield ()
+
+  def serverResource(socketAddress: SocketAddress[Host], http: HttpApp[IO]): Resource[IO, Server] =
+    EmberServerBuilder.default[IO]
+      .withHost(socketAddress.host)
+      .withPort(socketAddress.port)
+      .withHttpApp(
+        ErrorAction.log(
+          http = http,
+          messageFailureLogAction = (t, msg) => IO(logger.debug(t)(msg)),
+          serviceErrorLogAction = (t, msg) => IO(logger.error(t)(msg))
+        ))
+      .build
 }

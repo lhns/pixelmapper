@@ -1,10 +1,11 @@
 package ledstrip
 
+import cats.effect.IO
+import cats.effect.unsafe.IORuntime
 import com.github.mbelling.ws281x.{LedStripType, Ws281xLedStrip}
-import monix.eval.Task
 
 case class LedStrip(ledsCount: Int) {
-  val ledStripTask: Task[Ws281xLedStrip] = Task {
+  val ledStripTask: IO[Ws281xLedStrip] = IO {
     new Ws281xLedStrip(
       ledsCount,
       18,
@@ -16,9 +17,9 @@ case class LedStrip(ledsCount: Int) {
       LedStripType.WS2811_STRIP_GRB,
       true
     )
-  }.memoizeOnSuccess
+  }.memoize.unsafeRunSync()(IORuntime.global)
 
-  def setColors(colorRules: List[ColorRule]): Task[Unit] =
+  def setColors(colorRules: List[ColorRule]): IO[Unit] =
     for {
       ledStrip <- ledStripTask
     } yield {

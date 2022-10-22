@@ -3,10 +3,23 @@ inThisBuild(Seq(
   scalaVersion := "2.12.10"
 ))
 
+
+val V = new {
+  val betterMonadicFor = "0.3.1"
+  val cats = "2.6.1"
+  val catsEffect = "3.3.14"
+  val circe = "0.14.3"
+  val fs2 = "3.3.0"
+  val http4s = "0.23.16"
+  val http4sJdkHttpClient = "0.7.0"
+  val http4sScalatags = "0.25.0"
+  val logbackClassic = "1.4.4"
+}
+
 name := (ThisBuild / name).value
 
 def settings: Seq[SettingsDefinition] = Seq(
-  addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.2.4"),
+  addCompilerPlugin("com.olegpy" %% "better-monadic-for" % V.betterMonadicFor),
 
   assembly / assemblyJarName := s"${name.value}-${version.value}.sh.bat",
 
@@ -41,17 +54,16 @@ lazy val ledStripServer = project.in(file("."))
     Compile / mainClass := Some("ledstrip.client.Main"),
 
     libraryDependencies ++= Seq(
-      "ch.qos.logback" % "logback-classic" % "1.2.3",
-      "io.monix" %% "monix" % "3.0.0",
-      "io.circe" %% "circe-core" % "0.11.1",
-      "io.circe" %% "circe-generic" % "0.11.1",
-      "io.circe" %% "circe-parser" % "0.11.1",
-      "com.lihaoyi" %% "scalatags" % "0.7.0",
-      "org.http4s" %% "http4s-dsl" % "0.20.11",
-      "org.http4s" %% "http4s-blaze-server" % "0.20.11",
-      "org.http4s" %% "http4s-blaze-client" % "0.20.11",
-      "org.http4s" %% "http4s-circe" % "0.20.11",
-      "org.http4s" %% "http4s-scalatags" % "0.20.11",
+      "ch.qos.logback" % "logback-classic" % V.logbackClassic,
+      "io.circe" %% "circe-core" % V.circe,
+      "io.circe" %% "circe-generic" % V.circe,
+      "io.circe" %% "circe-parser" % V.circe,
+      "org.http4s" %% "http4s-circe" % V.http4s,
+      "org.http4s" %% "http4s-dsl" % V.http4s,
+      "org.http4s" %% "http4s-ember-server" % V.http4s,
+      "org.http4s" %% "http4s-jdk-http-client" % V.http4sJdkHttpClient,
+      "org.http4s" %% "http4s-scalatags" % V.http4sScalatags,
+      "org.typelevel" %% "cats-effect" % V.catsEffect,
       "com.github.mbelling" % "rpi-ws281x-java" % "2.0.0"
     )
   )
@@ -69,7 +81,7 @@ lazy val simulator = project.in(file("simulator"))
     version := "0.0.3",
 
     libraryDependencies ++= Seq(
-      "org.typelevel" %% "cats-core" % "2.0.0",
+      "org.typelevel" %% "cats-core" % V.cats,
       "org.openjfx" % "javafx-base" % "11.0.2" classifier osName,
       "org.openjfx" % "javafx-controls" % "11.0.2" classifier osName,
       "org.openjfx" % "javafx-graphics" % "11.0.2" classifier osName,
@@ -79,20 +91,19 @@ lazy val simulator = project.in(file("simulator"))
     )
   )
 
-lazy val editor = project.in(file("editor"))
+/*lazy val editor = project.in(file("editor"))
   .settings(settings: _*)
   .settings(
     name := "led-strip-editor",
     version := "0.0.1",
 
     libraryDependencies ++= Seq(
-      "io.monix" %% "monix" % "3.0.0",
-      "co.fs2" %% "fs2-core" % "2.0.0",
-      "co.fs2" %% "fs2-io" % "2.0.0",
+      "co.fs2" %% "fs2-io" % V.fs2,
       "org.openjfx" % "javafx-base" % "11.0.2" classifier osName,
       "org.openjfx" % "javafx-controls" % "11.0.2" classifier osName,
       "org.openjfx" % "javafx-graphics" % "11.0.2" classifier osName,
       "org.openjfx" % "javafx-media" % "11.0.2" classifier osName,
-      "org.scalafx" %% "scalafx" % "11-R16"
+      "org.scalafx" %% "scalafx" % "11-R16",
+      "org.typelevel" %% "cats-effect" % V.catsEffect
     )
-  )
+  )*/

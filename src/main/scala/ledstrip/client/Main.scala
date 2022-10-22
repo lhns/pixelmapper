@@ -3,20 +3,18 @@ package ledstrip.client
 import java.awt.image.BufferedImage
 import java.io.File
 import java.nio.file.{Files, Path, Paths}
+import cats.effect.{ExitCode, IO, IOApp}
 
-import cats.effect.ExitCode
 import javax.imageio.ImageIO
 import ledstrip.{Animation, Color, ColorRule, Frame}
-import monix.eval.{Task, TaskApp}
-import monix.execution.Scheduler
 import org.http4s.circe.CirceEntityEncoder._
 import org.http4s.client.Client
-import org.http4s.client.blaze.BlazeClientBuilder
+import org.http4s.jdkhttpclient.JdkHttpClient
 import org.http4s.{EntityEncoder, Method, Request, Uri}
 
 import scala.collection.JavaConverters._
 
-object Main extends TaskApp {
+object Main extends IOApp {
 
   case class Image(bufferedImage: BufferedImage) {
     val width: Int = bufferedImage.getWidth
@@ -37,10 +35,10 @@ object Main extends TaskApp {
   }
 
 
-  def sendColors(colorRules: List[ColorRule])(implicit client: Client[Task]): Task[Unit] =
+  def sendColors(colorRules: List[ColorRule])(implicit client: Client[IO]): IO[Unit] =
     send(Method.POST, "colors", colorRules)
 
-  def sendAnimation(animationOption: Option[Animation])(implicit client: Client[Task]): Task[Unit] =
+  def sendAnimation(animationOption: Option[Animation])(implicit client: Client[IO]): IO[Unit] =
     animationOption match {
       case Some(animation) =>
         send(Method.POST, "animation", animation)
@@ -58,10 +56,10 @@ object Main extends TaskApp {
     Uri.unsafeFromString(uriString)
   }
 
-  def send[E](method: Method, endpoint: String, entity: E)(implicit client: Client[Task], encoder: EntityEncoder[Task, E]): Task[Unit] = {
+  def send[E](method: Method, endpoint: String, entity: E)(implicit client: Client[IO], encoder: EntityEncoder[IO, E]): IO[Unit] = {
     val uri = loadUri()
 
-    val request: Request[Task] =
+    val request: Request[IO] =
       Request(
         method = method,
         uri = uri / endpoint
@@ -81,24 +79,24 @@ object Main extends TaskApp {
   }
 
 
-  override def run(args: List[String]): Task[ExitCode] = {
+  override def run(args: List[String]): IO[ExitCode] = {
     val path: Path = Paths.get(args.head)
     val image: Image = Image.read(path)
 
     for {
-      _ <- BlazeClientBuilder[Task](Scheduler.global).resource.use { implicit client =>
-        /*def drawImage(row: Int = 0): Task[Unit] = {
+      _ <- JdkHttpClient.simple[IO].use { implicit client =>
+        /*def drawImage(row: Int = 0): IO[Unit] = {
           for {
-            fiber <- Task.defer {
+            fiber <- IO.defer {
               val colorRules = imageRow(image, row)
               sendColors(colorRules)
             }.start
-            _ <- Task.sleep(30.millis)
+            _ <- IO.sleep(30.millis)
             _ <- fiber.join
             _ <- {
               val nextRow = row + 1
               if (nextRow < image.height) drawImage(row + 1)
-              else Task.unit
+              else IO.unit
             }
           } yield ()
         }
@@ -111,12 +109,9 @@ object Main extends TaskApp {
 
         sendAnimation(Some(Animation(frames.toList, loop = true)))
         //sendAnimation(None)
-      }.onErrorRestartIf { throwable =>
-        throwable.printStackTrace()
-        true
       }
 
-      /*_ <- Task {
+      /*_ <- IO {
         val frames = for (row <- 0 until image.height) yield {
           Frame(imageRow(image, row), if (row % 10 == 0) 30 else 30)
         }
