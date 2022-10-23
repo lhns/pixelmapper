@@ -21,13 +21,13 @@ object Main extends IOApp {
   private val logger = getLogger
 
   def playAnimation(
-                     ledStrip: LedStrip,
+                     fixture: Fixture[IO],
                      runningAnimation: Queue[IO, Option[Animation]]): IO[Unit] = {
     def playAnimationFrames(remainingFrames: List[Frame]): IO[Unit] =
       remainingFrames.headOption match {
         case Some(frame) =>
           for {
-            fiber <- ledStrip.setColors(frame.rules).start
+            fiber <- fixture.setPixels(ColorRule.toColorSeq(frame.rules, fixture.numPixels)).start
             _ <- IO.sleep(frame.delay.millis)
             _ <- fiber.join
             _ <- playAnimationFrames(remainingFrames.tail)
@@ -52,14 +52,14 @@ object Main extends IOApp {
           runningAnimation.tryOffer(Some(newAnimation))
 
         case None =>
-          ledStrip.setColors(List(ColorRule(None, Color.Black)))
+          fixture.setAllPixels(Color.Black)
       }
     } yield ()) >> loop
 
     loop
   }
 
-  def service(ledStrip: LedStrip,
+  def service(fixture: Fixture[IO],
               runningAnimation: Queue[IO, Option[Animation]]): HttpRoutes[IO] =
     HttpRoutes.of[IO] {
       case GET -> Root / "ping" =>
@@ -68,7 +68,7 @@ object Main extends IOApp {
       case request@POST -> Root / "colors" =>
         for {
           colors <- request.as[List[ColorRule]]
-          _ <- ledStrip.setColors(colors)
+          _ <- fixture.setPixels(ColorRule.toColorSeq(colors, fixture.numPixels))
           response <- Ok()
         } yield response
 
@@ -92,16 +92,17 @@ object Main extends IOApp {
 
   override def run(args: List[String]): IO[ExitCode] = {
     val socketAddress = SocketAddress.fromString(args(0)).get
-    val ledStrip = LedStrip(ledsCount = args(1).toInt)
+    val numLeds = args(1).toInt
 
     applicationResource(
       socketAddress,
-      ledStrip
+      numLeds
     ).use(_ => IO.never)
   }
 
-  def applicationResource(socketAddress: SocketAddress[Host], ledStrip: LedStrip): Resource[IO, Unit] =
+  def applicationResource(socketAddress: SocketAddress[Host], numLeds: Int): Resource[IO, Unit] =
     for {
+      ledStrip <- Resource.eval(LedStrip[IO](numLeds))
       runningAnimation <- Resource.eval(Queue.circularBuffer[IO, Option[Animation]](1))
       _ <- Resource.eval(playAnimation(ledStrip, runningAnimation).start)
       _ <- serverResource(

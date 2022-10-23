@@ -21,4 +21,15 @@ object ColorRule {
       case (color, ledsAndColors) => ColorRule(Some(ledsAndColors.map(_._1)), color)
     }.toList
   }
+
+  def toColorSeq(rules: Seq[ColorRule], length: Int): IndexedSeq[Color] = {
+    val array = Array.fill[Color](length)(Color.Black)
+    for {
+      rule <- rules
+      i <- rule.leds.getOrElse(0 until length)
+    } {
+      array(i) = rule.color
+    }
+    array
+  }
 }

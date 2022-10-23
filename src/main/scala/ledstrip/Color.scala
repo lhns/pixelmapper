@@ -3,9 +3,7 @@ package ledstrip
 import io.circe._
 import io.circe.generic.semiauto._
 
-case class Color(r: Int, g: Int, b: Int) {
-  def toStripColor = new com.github.mbelling.ws281x.Color(r, g, b)
-}
+case class Color(r: Int, g: Int, b: Int)
 
 object Color {
   implicit val colorDecoder: Decoder[Color] = deriveDecoder[Color]
