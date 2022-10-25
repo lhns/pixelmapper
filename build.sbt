@@ -1,8 +1,6 @@
-inThisBuild(Seq(
-  name := "led-strip",
-  scalaVersion := "2.13.10"
-))
-
+ThisBuild / scalaVersion := "2.13.10"
+ThisBuild / name := (server / name).value
+name := (ThisBuild / name).value
 
 val V = new {
   val betterMonadicFor = "0.3.1"
@@ -11,99 +9,96 @@ val V = new {
   val circe = "0.14.3"
   val fs2 = "3.3.0"
   val http4s = "0.23.16"
+  val http4sDom = "0.2.0"
   val http4sJdkHttpClient = "0.7.0"
-  val http4sScalatags = "0.25.0"
+  val http4sSpa = "0.5.0"
   val logbackClassic = "1.4.4"
+  val scalajsDom = "2.1.0"
+  val scalajsReact = "2.0.0"
 }
 
-name := (ThisBuild / name).value
-
-def settings: Seq[SettingsDefinition] = Seq(
+lazy val commonSettings: Seq[Setting[_]] = Seq(
+  version := {
+    val Tag = "refs/tags/v?([0-9]+(?:\\.[0-9]+)+(?:[+-].*)?)".r
+    sys.env.get("CI_VERSION").collect { case Tag(tag) => tag }
+      .getOrElse("0.0.1-SNAPSHOT")
+  },
   addCompilerPlugin("com.olegpy" %% "better-monadic-for" % V.betterMonadicFor),
-
   assembly / assemblyJarName := s"${name.value}-${version.value}.sh.bat",
-
   assembly / assemblyOption := (assembly / assemblyOption).value
-    .copy(prependShellScript = Some(AssemblyPlugin.defaultUniversalScript(shebang = false))),
-
+    .withPrependShellScript(Some(AssemblyPlugin.defaultUniversalScript(shebang = false))),
   assembly / assemblyMergeStrategy := {
-    case PathList("module-info.class") =>
-      MergeStrategy.discard
-
-    case PathList("META-INF", "jpms.args") =>
-      MergeStrategy.discard
-
-    case PathList("META-INF", "io.netty.versions.properties") =>
-      MergeStrategy.first
-
-    case PathList("libws281x.so") =>
-      MergeStrategy.last
-
+    case PathList(paths@_*) if paths.last == "module-info.class" => MergeStrategy.discard
+    case PathList("libws281x.so") => MergeStrategy.last
     case x =>
       val oldStrategy = (assembly / assemblyMergeStrategy).value
       oldStrategy(x)
-  }
+  },
 )
 
-lazy val ledStripServer = project.in(file("."))
-  .settings(settings: _*)
+lazy val root = project.in(file("."))
   .settings(
-    name := "led-strip-server",
-    version := "0.1.2",
+    publishArtifact := false
+  )
+  .aggregate(server)
 
-    Compile / mainClass := Some("ledstrip.client.Main"),
+lazy val shared = crossProject(JVMPlatform, JSPlatform)
+  .crossType(CrossType.Pure)
+  .settings(commonSettings)
+  .settings(
+    libraryDependencies ++= Seq(
+      "co.fs2" %% "fs2-io" % V.fs2,
+      "io.circe" %%% "circe-core" % V.circe,
+      "io.circe" %%% "circe-generic" % V.circe,
+      "io.circe" %%% "circe-parser" % V.circe,
+      "org.http4s" %%% "http4s-circe" % V.http4s,
+      "org.http4s" %%% "http4s-client" % V.http4s,
+      "org.typelevel" %%% "cats-core" % V.cats,
+      "org.typelevel" %%% "cats-effect" % V.catsEffect,
+    )
+  )
+
+lazy val sharedJvm = shared.jvm
+lazy val sharedJs = shared.js
+
+lazy val frontend = project
+  .enablePlugins(ScalaJSWebjarPlugin)
+  .dependsOn(sharedJs)
+  .settings(commonSettings)
+  .settings(
+    libraryDependencies ++= Seq(
+      "com.github.japgolly.scalajs-react" %%% "core-bundle-cats_effect" % V.scalajsReact,
+      "com.github.japgolly.scalajs-react" %%% "extra" % V.scalajsReact,
+      "org.scala-js" %%% "scalajs-dom" % V.scalajsDom,
+      "org.http4s" %%% "http4s-dom" % V.http4sDom
+    ),
+
+    scalaJSLinkerConfig ~= {
+      _.withModuleKind(ModuleKind.ESModule)
+    },
+    scalaJSUseMainModuleInitializer := true,
+  )
+
+lazy val frontendWebjar = frontend.webjar
+  .settings(
+    webjarAssetReferenceType := Some("http4s"),
+    libraryDependencies += "org.http4s" %% "http4s-server" % V.http4s,
+  )
+
+lazy val server = project
+  .enablePlugins(BuildInfoPlugin)
+  .dependsOn(sharedJvm, frontendWebjar)
+  .settings(commonSettings)
+  .settings(
+    name := "pixelmapper",
 
     libraryDependencies ++= Seq(
       "ch.qos.logback" % "logback-classic" % V.logbackClassic,
-      "io.circe" %% "circe-core" % V.circe,
-      "io.circe" %% "circe-generic" % V.circe,
-      "io.circe" %% "circe-parser" % V.circe,
+      "com.github.mbelling" % "rpi-ws281x-java" % "2.0.0",
       "org.http4s" %% "http4s-circe" % V.http4s,
       "org.http4s" %% "http4s-dsl" % V.http4s,
       "org.http4s" %% "http4s-ember-server" % V.http4s,
       "org.http4s" %% "http4s-jdk-http-client" % V.http4sJdkHttpClient,
-      "org.http4s" %% "http4s-scalatags" % V.http4sScalatags,
-      "org.typelevel" %% "cats-effect" % V.catsEffect,
-      "com.github.mbelling" % "rpi-ws281x-java" % "2.0.0"
+      "de.lolhens" %% "http4s-spa" % V.http4sSpa
     )
   )
-
-def osName: String =
-  if (scala.util.Properties.isLinux) "linux"
-  else if (scala.util.Properties.isMac) "mac"
-  else if (scala.util.Properties.isWin) "win"
-  else throw new Exception("Unknown platform!")
-
-lazy val simulator = project.in(file("simulator"))
-  .settings(settings: _*)
-  .settings(
-    name := "led-strip-simulator",
-    version := "0.0.3",
-
-    libraryDependencies ++= Seq(
-      "org.typelevel" %% "cats-core" % V.cats,
-      "org.openjfx" % "javafx-base" % "11.0.2" classifier osName,
-      "org.openjfx" % "javafx-controls" % "11.0.2" classifier osName,
-      "org.openjfx" % "javafx-graphics" % "11.0.2" classifier osName,
-      "org.openjfx" % "javafx-media" % "11.0.2" classifier osName,
-      "org.scalafx" %% "scalafx" % "11-R16",
-      "com.miglayout" % "miglayout-javafx" % "5.2"
-    )
-  )
-
-/*lazy val editor = project.in(file("editor"))
-  .settings(settings: _*)
-  .settings(
-    name := "led-strip-editor",
-    version := "0.0.1",
-
-    libraryDependencies ++= Seq(
-      "co.fs2" %% "fs2-io" % V.fs2,
-      "org.openjfx" % "javafx-base" % "11.0.2" classifier osName,
-      "org.openjfx" % "javafx-controls" % "11.0.2" classifier osName,
-      "org.openjfx" % "javafx-graphics" % "11.0.2" classifier osName,
-      "org.openjfx" % "javafx-media" % "11.0.2" classifier osName,
-      "org.scalafx" %% "scalafx" % "11-R16",
-      "org.typelevel" %% "cats-effect" % V.catsEffect
-    )
-  )*/
