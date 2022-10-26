@@ -1,11 +1,15 @@
 package de.lhns.pixelmapper
 
 import cats.effect.IO
-import japgolly.scalajs.react.ScalaComponent
+import cats.syntax.traverse._
 import japgolly.scalajs.react.ScalaComponent.BackendScope
 import japgolly.scalajs.react.util.EffectCatsEffect._
 import japgolly.scalajs.react.vdom.VdomElement
 import japgolly.scalajs.react.vdom.html_<^._
+import japgolly.scalajs.react.{ReactEventFromInput, ScalaComponent}
+import org.http4s.dom.FetchClientBuilder
+import org.http4s.headers.`Content-Type`
+import org.http4s.{Method, Request, Uri}
 
 import scala.concurrent.duration._
 
@@ -41,7 +45,20 @@ object MainComponent {
         <.div(
           <.input(
             ^.cls := "form-control form-control-lg",
-            ^.tpe := "file"
+            ^.tpe := "file",
+            ^.onChange ==> { event: ReactEventFromInput =>
+              event.target.files.headOption.map { file =>
+                FetchClientBuilder[IO].create.status(Request(
+                  method = Method.POST,
+                  uri = Uri.unsafeFromString("/image"),
+                  body = fromReadableStream[IO](file.stream)
+                ).withContentType(`Content-Type`.parse(file.`type`).toTry.get))
+              }.sequence.void
+            },
+            ^.onClick ==> { event: ReactEventFromInput =>
+              event.target.value = null
+              IO.unit
+            }
           )
         )
       )

@@ -47,7 +47,7 @@ lazy val shared = crossProject(JVMPlatform, JSPlatform)
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "co.fs2" %% "fs2-io" % V.fs2,
+      "co.fs2" %%% "fs2-io" % V.fs2,
       "io.circe" %%% "circe-core" % V.circe,
       "io.circe" %%% "circe-generic" % V.circe,
       "io.circe" %%% "circe-parser" % V.circe,
