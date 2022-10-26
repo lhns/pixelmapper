@@ -4,10 +4,12 @@ import cats.data.OptionT
 import cats.effect.std.Queue
 import cats.effect.{IO, Resource}
 import de.lhns.pixelmapper.fixture.Fixture
-import de.lhns.pixelmapper.util.{Animation, Color, ColorRule, Frame}
+import de.lhns.pixelmapper.util._
 import org.http4s.HttpRoutes
 import org.http4s.circe.CirceEntityDecoder._
 import org.http4s.dsl.io._
+
+import scala.concurrent.duration._
 
 class AnimationRoutes private(
                                fixture: Fixture[IO],
@@ -72,6 +74,17 @@ class AnimationRoutes private(
       case request@DELETE -> Root / "animation" =>
         for {
           _ <- runningAnimation.offer(None)
+          response <- Ok()
+        } yield response
+
+      case request@POST -> Root / "image" =>
+        for {
+          image <- request.body
+            .through(Image.fromBytes)
+            .compile
+            .lastOrError
+          animation = Animation.fromImage(image, delay = 30.millis, loop = true)
+          _ <- runningAnimation.offer(Some(animation))
           response <- Ok()
         } yield response
     }

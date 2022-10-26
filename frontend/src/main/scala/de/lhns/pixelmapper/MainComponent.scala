@@ -36,7 +36,15 @@ object MainComponent {
     }
 
     def render: VdomElement = {
-      <.div("Hello World!")
+      <.div(
+        ^.cls := "container py-4",
+        <.div(
+          <.input(
+            ^.cls := "form-control form-control-lg",
+            ^.tpe := "file"
+          )
+        )
+      )
     }
   }
 
