@@ -15,6 +15,8 @@ trait Image {
 
   def getRow(y: Int): IndexedSeq[Color] =
     (0 until width).map(getColor(_, y))
+
+  def toBytes[F[_] : Async]: fs2.Stream[F, Byte]
 }
 
 object Image {
@@ -31,6 +33,11 @@ object Image {
         (argb >> 0) & 0xFF
       )
     }
+
+    override def toBytes[F[_] : Async]: fs2.Stream[F, Byte] =
+      fs2.io.readOutputStream(1024 * 64)(outputStream => Async[F].blocking {
+        ImageIO.write(bufferedImage, "png", outputStream)
+      })
   }
 
   def fromBytes[F[_] : Async]: Pipe[F, Byte, Image] = { stream =>

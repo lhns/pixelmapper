@@ -14,12 +14,12 @@ object Animation {
     Animation(
       frames = (0 until image.height)
         .map(image.getRow)
-        .map(row => Frame(ColorRule.fromColorSeq(row), delay)),
+        .map(row => Frame(ColorRule.fromColorSeq(row), row.size, delay)),
       loop = loop
     )
 }
 
-case class Frame(rules: Seq[ColorRule], delay: FiniteDuration)
+case class Frame(rules: Seq[ColorRule], width: Int, delay: FiniteDuration)
 
 object Frame {
   private implicit val finiteDurationCodec: Codec[FiniteDuration] = Codec.from(

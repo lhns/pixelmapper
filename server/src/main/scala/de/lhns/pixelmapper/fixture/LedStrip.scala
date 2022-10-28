@@ -32,16 +32,22 @@ class LedStrip[F[_] : Async] private(ledStrip: Ws281xLedStrip) extends Fixture[F
 
 object LedStrip {
   def apply[F[_] : Async](numLeds: Int, gpioPin: Int = 18): F[LedStrip[F]] = Async[F].blocking {
-    new LedStrip(new Ws281xLedStrip(
-      numLeds,
-      gpioPin,
-      800000,
-      10,
-      255,
-      0,
-      false,
-      LedStripType.WS2811_STRIP_GRB,
-      true
-    ))
+    val ledStrip = try {
+      new Ws281xLedStrip(
+        numLeds,
+        gpioPin,
+        800000,
+        10,
+        255,
+        0,
+        false,
+        LedStripType.WS2811_STRIP_GRB,
+        true
+      )
+    } catch {
+      case e: UnsatisfiedLinkError =>
+        throw new RuntimeException("failed to initialize led strip", e)
+    }
+    new LedStrip(ledStrip)
   }
 }

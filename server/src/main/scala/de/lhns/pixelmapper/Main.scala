@@ -4,7 +4,7 @@ import cats.effect.std.Queue
 import cats.effect.{ExitCode, IO, IOApp, Resource}
 import cats.syntax.semigroupk._
 import com.comcast.ip4s.{Host, SocketAddress}
-import de.lhns.pixelmapper.fixture.LedStrip
+import de.lhns.pixelmapper.fixture.{Fixture, LedStrip}
 import de.lhns.pixelmapper.route.{AnimationRoutes, UiRoutes}
 import de.lhns.pixelmapper.util.Animation
 import org.http4s.HttpApp
@@ -30,7 +30,13 @@ object Main extends IOApp {
 
   def applicationResource(socketAddress: SocketAddress[Host], numLeds: Int): Resource[IO, Unit] =
     for {
-      fixture <- Resource.eval(LedStrip[IO](numLeds))
+      fixture <- Resource.eval {
+        LedStrip[IO](numLeds)
+          .handleError { throwable =>
+            logger.error(throwable)(throwable.getMessage)
+            Fixture.dummy[IO](numLeds)
+          }
+      }
       runningAnimation <- Resource.eval(Queue.circularBuffer[IO, Option[Animation]](1))
       animationRoutes <- AnimationRoutes(fixture, runningAnimation)
       uiRoutes = new UiRoutes()
