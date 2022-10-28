@@ -29,3 +29,8 @@ jobs:
         env:
           CI_VERSION: ${{ github.ref }}
         run: sbt "; test; assembly"
+
+      - uses: actions/upload-artifact@v3
+        with:
+          path: 'server/target/scala-*/*.sh.bat'
+          retention-days: 5
