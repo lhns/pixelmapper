@@ -7,15 +7,16 @@ import de.lhns.pixelmapper.fixture.Fixture
 import de.lhns.pixelmapper.util._
 import org.http4s.circe.CirceEntityDecoder._
 import org.http4s.dsl.io._
-import org.http4s.headers.`Content-Type`
+import org.http4s.headers.{`Content-Disposition`, `Content-Type`}
 import org.http4s.{HttpRoutes, MediaType}
+import org.typelevel.ci._
 
 import scala.concurrent.duration._
 
 class AnimationRoutes private(
                                fixture: Fixture[IO],
                                runningAnimation: Queue[IO, Option[Animation]],
-                               lastImageRef: Ref[IO, Option[Image]]
+                               lastImageRef: Ref[IO, Option[(String, Image)]]
                              ) {
   def runAnimation: IO[Unit] = {
     def playAnimationFrames(remainingFrames: Seq[Frame]): IO[Unit] =
@@ -88,19 +89,21 @@ class AnimationRoutes private(
             .through(Image.fromBytes)
             .compile
             .lastOrError
+          fileName = request.headers.get[`Content-Disposition`].flatMap(_.filename).getOrElse("animation.png")
           animation = Animation.fromImage(image, delay = 30.millis, loop = true)
           _ <- runningAnimation.offer(Some(animation))
-          _ <- lastImageRef.set(Some(image))
+          _ <- lastImageRef.set(Some((fileName, image)))
           response <- Ok()
         } yield response
 
       case GET -> Root / "image" =>
         lastImageRef.get.flatMap {
           case None => NotFound()
-          case Some(image) =>
+          case Some((fileName, image)) =>
             Ok().map(
               _.withEntity(image.toBytes[IO])
                 .withContentType(`Content-Type`(MediaType.image.png))
+                .putHeaders(`Content-Disposition`("inline", Map(ci"filename" -> fileName)))
             )
         }
     }
@@ -112,7 +115,7 @@ object AnimationRoutes {
              runningAnimation: Queue[IO, Option[Animation]]
            ): Resource[IO, AnimationRoutes] =
     for {
-      lastImageRef <- Resource.eval(Ref.of[IO, Option[Image]](None))
+      lastImageRef <- Resource.eval(Ref.of[IO, Option[(String, Image)]](None))
       animationRoutes = new AnimationRoutes(
         fixture,
         runningAnimation,

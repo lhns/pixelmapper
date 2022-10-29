@@ -2,15 +2,17 @@ package de.lhns.pixelmapper
 
 import cats.effect.IO
 import cats.syntax.traverse._
+import fs2.dom._
 import japgolly.scalajs.react.ScalaComponent.BackendScope
 import japgolly.scalajs.react.util.EffectCatsEffect._
 import japgolly.scalajs.react.vdom.VdomElement
 import japgolly.scalajs.react.vdom.html_<^._
 import japgolly.scalajs.react.{ReactEventFromInput, ScalaComponent}
 import org.http4s.dom.FetchClientBuilder
-import org.http4s.headers.`Content-Type`
+import org.http4s.headers.{`Content-Disposition`, `Content-Type`}
 import org.http4s.util.Renderer
-import org.http4s.{MediaType, Method, Request, Uri}
+import org.http4s.{Headers, MediaType, Method, Request, Uri}
+import org.typelevel.ci._
 
 import java.util.Base64
 import scala.concurrent.duration._
@@ -20,7 +22,7 @@ object MainComponent {
 
   case class Props()
 
-  case class State(imageOption: Option[(`Content-Type`, Array[Byte])])
+  case class State(imageOption: Option[(String, `Content-Type`, Array[Byte])])
 
   object State {
     val empty: State = State(imageOption = None)
@@ -36,7 +38,8 @@ object MainComponent {
           if (response.status.isSuccess)
             response.as[Array[Byte]].map { bytes =>
               val contentType = response.contentType.getOrElse(`Content-Type`(MediaType.image.png))
-              Some((contentType, bytes))
+              val fileName = response.headers.get[`Content-Disposition`].flatMap(_.filename).getOrElse("animation.png")
+              Some((fileName, contentType, bytes))
             }
           else
             IO(None)
@@ -72,7 +75,8 @@ object MainComponent {
                   FetchClientBuilder[IO].create.status(Request(
                     method = Method.POST,
                     uri = Uri.unsafeFromString("/image"),
-                    body = fromReadableStream[IO](file.stream)
+                    body = readReadableStream(IO(file.stream)),
+                    headers = Headers(`Content-Disposition`("inline", Map(ci"filename" -> file.name)))
                   ).withContentType(`Content-Type`.parse(file.`type`).toTry.get))
                 }.sequence.void >> IO {
                   target.value = null
@@ -93,8 +97,13 @@ object MainComponent {
           ),
           <.div(
             state.imageOption.map {
-              case (contentType, imageBytes) =>
-                <.img(^.src := s"data:${Renderer.renderString(contentType.mediaType)};base64,${Base64.getEncoder.encodeToString(imageBytes)}")
+              case (fileName, contentType, imageBytes) =>
+                val dataUrl: String = s"data:${Renderer.renderString(contentType.mediaType)};base64,${Base64.getEncoder.encodeToString(imageBytes)}"
+                <.a(
+                  ^.download := fileName,
+                  ^.href := dataUrl,
+                  <.img(^.src := dataUrl)
+                )
             }
           )
         )

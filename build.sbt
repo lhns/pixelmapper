@@ -8,6 +8,7 @@ val V = new {
   val catsEffect = "3.3.14"
   val circe = "0.14.3"
   val fs2 = "3.3.0"
+  val fs2Dom = "0.1.0-M1"
   val http4s = "0.23.16"
   val http4sDom = "0.2.0"
   val http4sJdkHttpClient = "0.7.0"
@@ -67,6 +68,7 @@ lazy val frontend = project
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
+      "com.armanbilge" %%% "fs2-dom" % V.fs2Dom,
       "com.github.japgolly.scalajs-react" %%% "core-bundle-cats_effect" % V.scalajsReact,
       "com.github.japgolly.scalajs-react" %%% "extra" % V.scalajsReact,
       "org.scala-js" %%% "scalajs-dom" % V.scalajsDom,
