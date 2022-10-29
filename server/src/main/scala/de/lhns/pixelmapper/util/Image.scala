@@ -1,7 +1,10 @@
 package de.lhns.pixelmapper.util
 
+import cats.data.EitherT
 import cats.effect.{Async, Sync}
 import fs2.Pipe
+import org.http4s.headers.`Content-Type`
+import org.http4s.{DecodeResult, Entity, EntityDecoder, EntityEncoder, Headers, Media, MediaRange, MediaType}
 
 import java.awt.image.BufferedImage
 import javax.imageio.ImageIO
@@ -46,5 +49,22 @@ object Image {
       .evalMap(inputStream => Sync[F].blocking {
         fromBufferedImage(ImageIO.read(inputStream))
       })
+  }
+
+  implicit def entityDecoder[F[_] : Async]: EntityDecoder[F, Image] = new EntityDecoder[F, Image] {
+    override def decode(m: Media[F], strict: Boolean): DecodeResult[F, Image] = EitherT.right {
+      m.body
+        .through(fromBytes)
+        .compile
+        .lastOrError
+    }
+
+    override def consumes: Set[MediaRange] = Set(MediaRange.`image/*`)
+  }
+
+  implicit def entityEncoder[F[_] : Async]: EntityEncoder[F, Image] = new EntityEncoder[F, Image] {
+    override def toEntity(a: Image): Entity[F] = Entity(a.toBytes)
+
+    override def headers: Headers = Headers(`Content-Type`(MediaType.image.png))
   }
 }

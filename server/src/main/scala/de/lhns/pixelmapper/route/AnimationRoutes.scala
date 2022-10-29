@@ -9,9 +9,9 @@ import de.lhns.pixelmapper.fixture.Fixture
 import de.lhns.pixelmapper.util._
 import org.http4s.circe.CirceEntityDecoder._
 import org.http4s.dsl.io._
-import org.http4s.headers.{`Content-Disposition`, `Content-Type`}
+import org.http4s.headers.`Content-Disposition`
 import org.http4s.multipart.{Multipart, Multiparts, Part}
-import org.http4s.{Headers, HttpRoutes, MediaType}
+import org.http4s.{EntityEncoder, HttpRoutes}
 import org.typelevel.ci._
 
 import scala.concurrent.duration._
@@ -94,10 +94,7 @@ class AnimationRoutes private(
               multipart <- request.as[Multipart[IO]]
               images <- multipart.parts.map { part =>
                 for {
-                  image <- part.body
-                    .through(Image.fromBytes)
-                    .compile
-                    .lastOrError
+                  image <- part.as[Image]
                   fileName = part.filename.getOrElse(defaultFileName)
                 } yield
                   (fileName, image)
@@ -105,10 +102,7 @@ class AnimationRoutes private(
             } yield images
           } else {
             for {
-              image <- request.body
-                .through(Image.fromBytes)
-                .compile
-                .lastOrError
+              image <- request.as[Image]
               fileName = request.headers.get[`Content-Disposition`].flatMap(_.filename).getOrElse(defaultFileName)
             } yield Seq((fileName, image))
           }
@@ -127,14 +121,10 @@ class AnimationRoutes private(
         imagesRef.get.flatMap {
           case Seq() => NotFound()
           case Seq((fileName, image)) =>
-            Ok().map(
-              _.withEntity(image.toBytes[IO])
-                .withContentType(`Content-Type`(MediaType.image.png))
-                .putHeaders(`Content-Disposition`("inline", Map(ci"filename" -> fileName)))
-            )
+            Ok(image)
+              .map(_.putHeaders(`Content-Disposition`("inline", Map(ci"filename" -> fileName))))
           case seq =>
             for {
-              response <- Ok()
               multiparts <- Multiparts.forSync[IO]
               multipart <- multiparts.multipart(
                 seq.zipWithIndex.map {
@@ -142,14 +132,14 @@ class AnimationRoutes private(
                     Part.fileData(
                       name = i.toString,
                       filename = fileName,
-                      entityBody = image.toBytes[IO],
-                      headers = Headers(`Content-Type`(MediaType.image.png))
+                      entityBody = EntityEncoder[IO, Image].toEntity(image).body,
+                      headers = EntityEncoder[IO, Image].headers
                     )
                 }.toVector
               )
-            } yield
-              response.withEntity(multipart)
-                .putHeaders(multipart.headers)
+              response <- Ok(multipart)
+                .map(_.putHeaders(multipart.headers))
+            } yield response
         }
     }
 }
