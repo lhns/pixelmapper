@@ -6,30 +6,34 @@ import de.lhns.pixelmapper.util.Color
 trait Fixture[F[_]] {
   def numPixels: Int
 
-  def setPixel(i: Int, color: Color): F[Unit]
-
   def setAllPixels(color: Color): F[Unit]
 
-  def setPixels(colors: IndexedSeq[Color], fixtureOffset: Int, fixtureLength: Int, arrayOffset: Int, arrayLength: Int): F[Unit]
+  def setPixels(colors: Seq[(Int, Color)]): F[Unit]
 
-  def setPixels(colors: IndexedSeq[Color], fixtureOffset: Int, fixtureLength: Int): F[Unit] =
-    setPixels(colors, fixtureOffset, fixtureLength, 0, colors.size)
+  def setPixel(i: Int, color: Color): F[Unit] = setPixels(Seq((i, color)))
+
+  def setPixels(colors: IndexedSeq[Color], offset: Int, length: Int): F[Unit] =
+    setPixels(
+      for {
+        i <- Math.max(0, offset) until Math.min(numPixels, offset + length)
+        color = colors(i * colors.length / length + offset)
+        if color != null
+      } yield
+        (i, color)
+    )
 
   def setPixels(colors: IndexedSeq[Color]): F[Unit] =
-    setPixels(colors, 0, numPixels, 0, colors.size)
+    setPixels(colors, 0, colors.length)
 }
 
 object Fixture {
   def dummy[F[_] : Monad](_numPixels: Int): Fixture[F] = new Fixture[F] {
     override def numPixels: Int = _numPixels
 
-    override def setPixel(i: Int, color: Color): F[Unit] =
-      Monad[F].unit
-
     override def setAllPixels(color: Color): F[Unit] =
       Monad[F].unit
 
-    override def setPixels(colors: IndexedSeq[Color], fixtureOffset: Int, fixtureLength: Int, arrayOffset: Int, arrayLength: Int): F[Unit] =
+    override def setPixels(colors: Seq[(Int, Color)]): F[Unit] =
       Monad[F].unit
   }
 }
