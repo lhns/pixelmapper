@@ -3,12 +3,15 @@ package de.lhns.pixelmapper.route
 import cats.data.OptionT
 import cats.effect.std.Queue
 import cats.effect.{IO, Ref, Resource}
+import cats.kernel.Monoid
+import cats.syntax.traverse._
 import de.lhns.pixelmapper.fixture.Fixture
 import de.lhns.pixelmapper.util._
 import org.http4s.circe.CirceEntityDecoder._
 import org.http4s.dsl.io._
 import org.http4s.headers.{`Content-Disposition`, `Content-Type`}
-import org.http4s.{HttpRoutes, MediaType}
+import org.http4s.multipart.{Multipart, Multiparts, Part}
+import org.http4s.{Headers, HttpRoutes, MediaType}
 import org.typelevel.ci._
 
 import scala.concurrent.duration._
@@ -16,7 +19,7 @@ import scala.concurrent.duration._
 class AnimationRoutes private(
                                fixture: Fixture[IO],
                                runningAnimation: Queue[IO, Option[Animation]],
-                               lastImageRef: Ref[IO, Option[(String, Image)]]
+                               imagesRef: Ref[IO, Seq[(String, Image)]]
                              ) {
   def runAnimation: IO[Unit] = {
     def playAnimationFrames(remainingFrames: Seq[Frame]): IO[Unit] =
@@ -64,7 +67,7 @@ class AnimationRoutes private(
         for {
           colors <- request.as[List[ColorRule]]
           _ <- fixture.setPixels(ColorRule.toColorSeq(colors, fixture.numPixels))
-          _ <- lastImageRef.set(None)
+          _ <- imagesRef.set(Seq.empty)
           response <- Ok()
         } yield response
 
@@ -72,39 +75,81 @@ class AnimationRoutes private(
         for {
           animation <- request.as[Animation]
           _ <- runningAnimation.offer(Some(animation))
-          _ <- lastImageRef.set(None)
+          _ <- imagesRef.set(Seq.empty)
           response <- Ok()
         } yield response
 
       case request@DELETE -> Root / "animation" =>
         for {
           _ <- runningAnimation.offer(None)
-          _ <- lastImageRef.set(None)
+          _ <- imagesRef.set(Seq.empty)
           response <- Ok()
         } yield response
 
       case request@POST -> Root / "image" =>
+        val defaultFileName = "animation.png"
         for {
-          image <- request.body
-            .through(Image.fromBytes)
-            .compile
-            .lastOrError
-          fileName = request.headers.get[`Content-Disposition`].flatMap(_.filename).getOrElse("animation.png")
-          animation = Animation.fromImage(image, delay = 30.millis, loop = true)
+          images <- if (request.contentType.exists(_.mediaType.isMultipart)) {
+            for {
+              multipart <- request.as[Multipart[IO]]
+              images <- multipart.parts.map { part =>
+                for {
+                  image <- part.body
+                    .through(Image.fromBytes)
+                    .compile
+                    .lastOrError
+                  fileName = part.filename.getOrElse(defaultFileName)
+                } yield
+                  (fileName, image)
+              }.sequence
+            } yield images
+          } else {
+            for {
+              image <- request.body
+                .through(Image.fromBytes)
+                .compile
+                .lastOrError
+              fileName = request.headers.get[`Content-Disposition`].flatMap(_.filename).getOrElse(defaultFileName)
+            } yield Seq((fileName, image))
+          }
+          animation = Monoid[Animation].combineAll {
+            images.map {
+              case (_, image) =>
+                Animation.fromImage(image, delay = 30.millis, loop = true)
+            }
+          }
           _ <- runningAnimation.offer(Some(animation))
-          _ <- lastImageRef.set(Some((fileName, image)))
+          _ <- imagesRef.set(images)
           response <- Ok()
         } yield response
 
       case GET -> Root / "image" =>
-        lastImageRef.get.flatMap {
-          case None => NotFound()
-          case Some((fileName, image)) =>
+        imagesRef.get.flatMap {
+          case Seq() => NotFound()
+          case Seq((fileName, image)) =>
             Ok().map(
               _.withEntity(image.toBytes[IO])
                 .withContentType(`Content-Type`(MediaType.image.png))
                 .putHeaders(`Content-Disposition`("inline", Map(ci"filename" -> fileName)))
             )
+          case seq =>
+            for {
+              response <- Ok()
+              multiparts <- Multiparts.forSync[IO]
+              multipart <- multiparts.multipart(
+                seq.zipWithIndex.map {
+                  case ((fileName, image), i) =>
+                    Part.fileData(
+                      name = i.toString,
+                      filename = fileName,
+                      entityBody = image.toBytes[IO],
+                      headers = Headers(`Content-Type`(MediaType.image.png))
+                    )
+                }.toVector
+              )
+            } yield
+              response.withEntity(multipart)
+                .putHeaders(multipart.headers)
         }
     }
 }
@@ -115,7 +160,7 @@ object AnimationRoutes {
              runningAnimation: Queue[IO, Option[Animation]]
            ): Resource[IO, AnimationRoutes] =
     for {
-      lastImageRef <- Resource.eval(Ref.of[IO, Option[(String, Image)]](None))
+      lastImageRef <- Resource.eval(Ref.of[IO, Seq[(String, Image)]](Seq.empty))
       animationRoutes = new AnimationRoutes(
         fixture,
         runningAnimation,

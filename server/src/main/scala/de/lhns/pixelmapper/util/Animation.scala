@@ -1,5 +1,6 @@
 package de.lhns.pixelmapper.util
 
+import cats.kernel.Monoid
 import io.circe._
 import io.circe.generic.semiauto._
 
@@ -8,7 +9,16 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
 case class Animation(frames: Seq[Frame], loop: Boolean)
 
 object Animation {
-  implicit val animationCodec: Codec[Animation] = deriveCodec[Animation]
+  val empty: Animation = Animation(Seq.empty, loop = false)
+
+  implicit val codec: Codec[Animation] = deriveCodec[Animation]
+
+  implicit val monoid: Monoid[Animation] = Monoid.instance(
+    empty,
+    { (a, b) =>
+      Animation(a.frames ++ b.frames, a.loop || b.loop)
+    }
+  )
 
   def fromImage(image: Image, delay: FiniteDuration, loop: Boolean): Animation =
     Animation(
@@ -30,5 +40,5 @@ object Frame {
     Encoder.encodeString.contramap(_.toString)
   )
 
-  implicit val frameCodec: Codec[Frame] = deriveCodec[Frame]
+  implicit val codec: Codec[Frame] = deriveCodec[Frame]
 }
