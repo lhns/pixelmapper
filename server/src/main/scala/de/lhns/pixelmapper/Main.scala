@@ -4,9 +4,10 @@ import cats.effect.std.Queue
 import cats.effect.{ExitCode, IO, IOApp, Resource}
 import cats.syntax.semigroupk._
 import com.comcast.ip4s.{Host, SocketAddress}
-import de.lhns.pixelmapper.fixture.{Fixture, LedStrip}
+import de.lhns.pixelmapper.fixture.{Fixture, LedStrip, Translation}
 import de.lhns.pixelmapper.route.{AnimationRoutes, UiRoutes}
-import de.lhns.pixelmapper.util.Animation
+import de.lhns.pixelmapper.util.{Animation, Image}
+import fs2.io.file.{Files, Path}
 import org.http4s.HttpApp
 import org.http4s.ember.server.EmberServerBuilder
 import org.http4s.server.Server
@@ -20,22 +21,31 @@ object Main extends IOApp {
 
   override def run(args: List[String]): IO[ExitCode] = {
     val socketAddress = SocketAddress.fromString(args(0)).get
-    val numLeds = args(1).toInt
+    val translationFilePath = Path(args(1))
 
     applicationResource(
       socketAddress,
-      numLeds
+      translationFilePath
     ).use(_ => IO.never)
   }
 
-  def applicationResource(socketAddress: SocketAddress[Host], numLeds: Int): Resource[IO, Unit] =
+  def applicationResource(socketAddress: SocketAddress[Host], translationFilePath: Path): Resource[IO, Unit] =
     for {
+      translationImage <- Resource.eval {
+        Files[IO].readAll(translationFilePath)
+          .through(Image.fromBytes)
+          .compile
+          .lastOrError
+      }
       fixture <- Resource.eval {
-        LedStrip[IO](numLeds)
+        LedStrip[IO](translationImage.width)
           .handleError { throwable =>
             logger.error(throwable)(throwable.getMessage)
-            Fixture.dummy[IO](numLeds)
+            Fixture.dummy[IO](translationImage.width)
           }
+      }
+      fixture <- Resource.pure {
+        Translation.fromImage(fixture, translationImage)
       }
       runningAnimation <- Resource.eval(Queue.circularBuffer[IO, Option[Animation]](1))
       animationRoutes <- AnimationRoutes(fixture, runningAnimation)

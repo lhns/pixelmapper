@@ -10,22 +10,13 @@ class LedStrip[F[_] : Async] private(ledStrip: Ws281xLedStrip) extends Fixture[F
   private implicit def toLedStripColor(color: Color): com.github.mbelling.ws281x.Color =
     new com.github.mbelling.ws281x.Color(color.r, color.g, color.b)
 
-  override def setPixel(i: Int, color: Color): F[Unit] = Async[F].blocking {
-    if (i >= 0 && i < numPixels) {
-      ledStrip.setPixel(i, color)
-      ledStrip.render()
-    }
-  }
-
   override def setAllPixels(color: Color): F[Unit] = Async[F].blocking {
     ledStrip.setStrip(color)
     ledStrip.render()
   }
 
-  override def setPixels(colors: IndexedSeq[Color], fixtureOffset: Int, fixtureLength: Int, arrayOffset: Int, arrayLength: Int): F[Unit] = Async[F].blocking {
-    for (i <- Math.max(0, fixtureOffset) until Math.min(numPixels, fixtureOffset + fixtureLength)) {
-      ledStrip.setPixel(i, colors(i * arrayLength / fixtureLength + arrayOffset))
-    }
+  override def setPixels(colors: Seq[(Int, Color)]): F[Unit] = Async[F].blocking {
+    colors.foreach { case (i, color) => ledStrip.setPixel(i, color) }
     ledStrip.render()
   }
 }
