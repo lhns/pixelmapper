@@ -7,10 +7,8 @@ import japgolly.scalajs.react.vdom.VdomElement
 import japgolly.scalajs.react.vdom.html_<^._
 import japgolly.scalajs.react.{ReactEventFromInput, ScalaComponent}
 import org.http4s.dom.FetchClientBuilder
-import org.http4s.util.Renderer
 import org.http4s.{MediaType, Method, Request, Uri}
 
-import java.util.Base64
 import scala.concurrent.duration._
 
 object MainComponent {
@@ -94,7 +92,7 @@ object MainComponent {
           },
           state.images.toVdomArray {
             case (fileName, mediaType, imageBytes) =>
-              val dataUrl: String = s"data:${Renderer.renderString(mediaType)};base64,${Base64.getEncoder.encodeToString(imageBytes)}"
+              val dataUrl = makeDataUrl(mediaType, imageBytes)
               <.div(
                 <.a(
                   ^.download := fileName,
