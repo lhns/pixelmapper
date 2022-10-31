@@ -1,19 +1,14 @@
 package de.lhns.pixelmapper
 
 import cats.effect.IO
-import cats.syntax.traverse._
-import fs2.dom._
 import japgolly.scalajs.react.ScalaComponent.BackendScope
 import japgolly.scalajs.react.util.EffectCatsEffect._
 import japgolly.scalajs.react.vdom.VdomElement
 import japgolly.scalajs.react.vdom.html_<^._
 import japgolly.scalajs.react.{ReactEventFromInput, ScalaComponent}
 import org.http4s.dom.FetchClientBuilder
-import org.http4s.headers.{`Content-Disposition`, `Content-Type`}
-import org.http4s.multipart.{Multipart, Multiparts, Part}
 import org.http4s.util.Renderer
-import org.http4s.{Headers, MediaType, Method, Request, Uri}
-import org.typelevel.ci._
+import org.http4s.{MediaType, Method, Request, Uri}
 
 import java.util.Base64
 import scala.concurrent.duration._
@@ -23,45 +18,22 @@ object MainComponent {
 
   case class Props()
 
-  case class State(images: Seq[(String, `Content-Type`, Array[Byte])])
+  case class State(
+                    images: Seq[(String, MediaType, Array[Byte])],
+                    progress: Option[Double]
+                  )
 
   object State {
-    val empty: State = State(images = Seq.empty)
+    val empty: State = State(
+      images = Seq.empty,
+      progress = None
+    )
   }
 
   class Backend($: BackendScope[Props, State]) {
     private def fetchState: IO[Unit] =
       for {
-        images <- FetchClientBuilder[IO].create.run(Request(
-          method = Method.GET,
-          uri = Uri.unsafeFromString("/image")
-        )).use { response =>
-          if (response.status.isSuccess) {
-            val defaultFileName = "animation.png"
-            if (response.contentType.exists(_.mediaType.isMultipart)) {
-              for {
-                multipart <- response.as[Multipart[IO]]
-                images <- multipart.parts.map { part =>
-                  for {
-                    bytes <- part.as[Array[Byte]]
-                    contentType = part.contentType.getOrElse(`Content-Type`(MediaType.image.png))
-                    fileName = part.filename.getOrElse(defaultFileName)
-                  } yield
-                    (fileName, contentType, bytes)
-                }.sequence
-              } yield images
-            } else {
-              for {
-                bytes <- response.as[Array[Byte]]
-                contentType = response.contentType.getOrElse(`Content-Type`(MediaType.image.png))
-                fileName = response.headers.get[`Content-Disposition`].flatMap(_.filename).getOrElse(defaultFileName)
-              } yield
-                Seq((fileName, contentType, bytes))
-            }
-          } else {
-            IO.pure(Seq.empty)
-          }
-        }
+        images <- ImageApi.getImages
         _ <- $.modStateAsync(_.copy(images = images))
       } yield ()
 
@@ -90,41 +62,10 @@ object MainComponent {
               ^.multiple := true,
               ^.onChange ==> { event: ReactEventFromInput =>
                 val target = event.target
-                val uri = Uri.unsafeFromString("/image")
                 for {
-                  requestOption <- target.files.toSeq match {
-                    case Seq() => IO.pure(None)
-                    case Seq(file) =>
-                      IO.pure(Some(Request(
-                        method = Method.POST,
-                        uri = uri,
-                        body = readReadableStream(IO(file.stream)),
-                        headers = Headers(
-                          `Content-Disposition`("inline", Map(ci"filename" -> file.name)),
-                          `Content-Type`.parse(file.`type`).toTry.get)
-                      )))
-                    case files =>
-                      for {
-                        multiparts <- Multiparts.forSync[IO]
-                        multipart <- multiparts.multipart(
-                          files.zipWithIndex.map {
-                            case (file, i) =>
-                              Part.fileData(
-                                name = i.toString,
-                                filename = file.name,
-                                entityBody = readReadableStream(IO(file.stream)),
-                                headers = Headers(`Content-Type`.parse(file.`type`).toTry.get)
-                              )
-                          }.toVector
-                        )
-                      } yield Some(Request(
-                        method = Method.POST,
-                        uri = uri,
-                        headers = multipart.headers
-                      ).withEntity(multipart))
-                  }
-                  _ <- requestOption.map(request => FetchClientBuilder[IO].create.status(request)).sequence
+                  _ <- ImageApi.postImages(target.files.toSeq).evalTap(progress => $.modStateAsync(_.copy(progress = Some(progress)))).compile.drain
                   _ = target.value = null
+                  _ <- $.modStateAsync(_.copy(progress = None))
                   _ <- fetchState
                 } yield ()
               }
@@ -141,9 +82,19 @@ object MainComponent {
               }
             )
           ),
+          state.progress.map { progress =>
+            <.div(
+              ^.cls := "progress",
+              <.div(
+                ^.cls := "progress-bar",
+                ^.role := "progressbar",
+                ^.width := s"${(progress * 100).toInt}%"
+              )
+            )
+          },
           state.images.toVdomArray {
-            case (fileName, contentType, imageBytes) =>
-              val dataUrl: String = s"data:${Renderer.renderString(contentType.mediaType)};base64,${Base64.getEncoder.encodeToString(imageBytes)}"
+            case (fileName, mediaType, imageBytes) =>
+              val dataUrl: String = s"data:${Renderer.renderString(mediaType)};base64,${Base64.getEncoder.encodeToString(imageBytes)}"
               <.div(
                 <.a(
                   ^.download := fileName,
