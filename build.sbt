@@ -13,7 +13,7 @@ val V = new {
   val http4sDom = "0.2.0"
   val http4sJdkHttpClient = "0.7.0"
   val http4sSpa = "0.6.1"
-  val logbackClassic = "1.4.4"
+  val logbackClassic = "1.4.5"
   val scalajsDom = "2.1.0"
   val scalajsReact = "2.0.0"
 }
