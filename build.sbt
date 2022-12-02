@@ -11,7 +11,6 @@ val V = new {
   val fs2Dom = "0.1.0-M1"
   val http4s = "0.23.16"
   val http4sDom = "0.2.0"
-  val http4sJdkHttpClient = "0.8.0"
   val http4sSpa = "0.6.1"
   val logbackClassic = "1.4.5"
   val scalajsDom = "2.1.0"
@@ -100,7 +99,6 @@ lazy val server = project
       "org.http4s" %% "http4s-circe" % V.http4s,
       "org.http4s" %% "http4s-dsl" % V.http4s,
       "org.http4s" %% "http4s-ember-server" % V.http4s,
-      "org.http4s" %% "http4s-jdk-http-client" % V.http4sJdkHttpClient,
       "de.lolhens" %% "http4s-spa" % V.http4sSpa
     )
   )
