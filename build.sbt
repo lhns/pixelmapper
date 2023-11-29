@@ -1,4 +1,4 @@
-ThisBuild / scalaVersion := "2.13.11"
+ThisBuild / scalaVersion := "2.13.12"
 ThisBuild / name := (server / name).value
 name := (ThisBuild / name).value
 
@@ -9,10 +9,10 @@ val V = new {
   val circe = "0.14.3"
   val fs2 = "3.3.0"
   val fs2Dom = "0.1.0-M1"
-  val http4s = "0.23.23"
+  val http4s = "0.23.24"
   val http4sDom = "0.2.0"
   val http4sSpa = "0.6.1"
-  val logbackClassic = "1.4.9"
+  val logbackClassic = "1.4.13"
   val scalajsDom = "2.1.0"
   val scalajsReact = "2.0.0"
 }
