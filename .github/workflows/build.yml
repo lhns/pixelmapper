@@ -30,7 +30,7 @@ jobs:
           CI_VERSION: ${{ github.ref }}
         run: sbt "; test; assembly"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           path: 'server/target/scala-*/*.sh.bat'
           retention-days: 5
